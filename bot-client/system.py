@@ -4673,19 +4673,21 @@ def on_lap(packet: bytes):
                 if not old or laptime < old['lap_time']:
                     c.execute("INSERT INTO personal_bests (uname, track, car, lap_time, laps_completed) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), laps_completed = VALUES(laps_completed)", (uname, track, car, laptime, laps_done))
                     
+                    # Also insert into track_records immediately so !top can see the new PB without waiting for race end
+                    c.execute("INSERT INTO track_records (uname, track, car, lap_time, laps_completed) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), laps_completed = VALUES(laps_completed)", (uname, track, car, laptime, laps_done))
+                    
                     diff_str = format_lap_time(old['lap_time'] - laptime) if old else ""
                     if old:
                         broadcast_localized("impr_pb", uname=uname, track=track, car=car, time=format_lap_time(laptime), diff=diff_str)
                     else:
                         broadcast_localized("new_pb", uname=uname, track=track, car=car, time=format_lap_time(laptime))
-
-                # WR
-                c.execute("SELECT lap_time FROM track_records WHERE track = %s AND car = %s", (track, car))
-                wr_rows = c.fetchall()
-                wr = wr_rows[0] if wr_rows else None
-                if not wr or laptime < wr['lap_time']:
-                    c.execute("INSERT INTO track_records (track, car, uname, lap_time, laps_completed) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), uname = VALUES(uname), laps_completed = VALUES(laps_completed)", (track, car, uname, laptime, laps_done))
-                    broadcast_localized("sys_record_msg", uname=uname, track=track, time=format_lap_time(laptime))
+                        
+                    # Check WR for announcement
+                    c.execute("SELECT MIN(lap_time) as lap_time FROM track_records WHERE track = %s AND car = %s AND uname != %s", (track, car, uname))
+                    wr_rows = c.fetchall()
+                    wr = wr_rows[0] if wr_rows else None
+                    if not wr['lap_time'] or laptime < wr['lap_time']:
+                        broadcast_localized("sys_record_msg", uname=uname, track=track, time=format_lap_time(laptime))
                 
             conn.commit()
         except Exception as e:
