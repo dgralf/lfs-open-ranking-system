@@ -4674,7 +4674,7 @@ def on_lap(packet: bytes):
                     c.execute("INSERT INTO personal_bests (uname, track, car, lap_time, laps_completed) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), laps_completed = VALUES(laps_completed)", (uname, track, car, laptime, laps_done))
                     
                     # Also insert into track_records immediately so !top can see the new PB without waiting for race end
-                    c.execute("INSERT INTO track_records (uname, track, car, lap_time, laps_completed) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), laps_completed = VALUES(laps_completed)", (uname, track, car, laptime, laps_done))
+                    c.execute("INSERT INTO track_records (uname, track, car, lap_time, race_date) VALUES (%s, %s, %s, %s, NOW()) ON DUPLICATE KEY UPDATE lap_time = VALUES(lap_time), race_date = VALUES(race_date)", (uname, track, car, laptime))
                     
                     diff_str = format_lap_time(old['lap_time'] - laptime) if old else ""
                     if old:
