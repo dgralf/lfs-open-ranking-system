@@ -1663,6 +1663,31 @@ def get_db_connection():
         logging.error(f"DB Connection Error: {e}")
         return None
 
+
+def update_server_config(key: str, value):
+    with STATE.lock:
+        STATE.config[key] = value
+    conn = get_db_connection()
+    if not conn: return
+    try:
+        with conn.cursor(dictionary=True) as c:
+            c.execute("SELECT config FROM servers WHERE ip = %s AND port = %s", (ARGS.host, ARGS.insim_port))
+            row = c.fetchone()
+            cfg = {}
+            if row and row['config']:
+                try:
+                    import json
+                    cfg = json.loads(row['config'])
+                except: pass
+            cfg[key] = value
+            import json
+            c.execute("UPDATE servers SET config = %s WHERE ip = %s AND port = %s", (json.dumps(cfg), ARGS.host, ARGS.insim_port))
+            conn.commit()
+    except Exception as e:
+        logging.error(f"Error updating server config in DB: {e}")
+    finally:
+        conn.close()
+
 def calculate_elo(results: list):
     n = len(results)
     if n < 2: return
@@ -1920,7 +1945,7 @@ def display_voting_table(ucid: int):
 
     y = 72
     for i, opt in enumerate(STATE.current_voting_options):
-        click_id = 240 + i
+        click_id = 210 + i
         # Base style: LIGHT + CLICK + LEFT
         style = ISB_LIGHT | ISB_CLICK | ISB_LEFT | ISB_COLOR_UNSELECTED
         
@@ -1946,9 +1971,9 @@ def on_button_click(packet: bytes):
         return
         
     # Visual Voting Menu
-    if 240 <= click_id <= 245:
+    if 210 <= click_id <= 215:
         if STATE.voting_end_time > 0:
-            opt = click_id - 240
+            opt = click_id - 210
             STATE.votes[ucid] = opt
             uname = STATE.current_race['players'].get(ucid, {}).get('uname', 'Alguien')
             send_message(f"^3{uname}^7 voted for option {opt+1}")
@@ -2080,6 +2105,12 @@ def on_button_click(packet: bytes):
                                  STATE.current_voting_options = generate_random_voting_options()
                             import threading
                             threading.Thread(target=start_voting, daemon=True).start()
+                        elif action_id == 'max_races_add':
+                            update_server_config('max_races', int(STATE.config.get('max_races', 5)) + 1)
+                            show_admin_control(ucid)
+                        elif action_id == 'max_races_sub':
+                            update_server_config('max_races', max(0, int(STATE.config.get('max_races', 5)) - 1))
+                            show_admin_control(ucid)
                         elif action_id == 'back': show_admin_menu(ucid)
 
                     elif state['cmd'] == '!admin_rotation':
@@ -2189,7 +2220,7 @@ def on_button_click(packet: bytes):
                 return
     with STATE.lock:
         if STATE.voting_active and 210 <= click_id < 210 + len(STATE.current_voting_options):
-            option_idx = click_id - 210
+            option_idx = click_id - 240
             STATE.votes[ucid] = option_idx
             send_message(get_msg('vote_registered', ucid), ucid)
             display_voting_table(ucid)
@@ -3009,11 +3040,14 @@ def show_admin_menu(ucid: int):
     display_table_with_menu(ucid, get_msg('adm_main_title', ucid), headers, data, "!admin")
 
 def show_admin_control(ucid: int):
+    max_races = int(STATE.config.get('max_races', 5))
     actions = [
         {'id': 'start', 'name': get_msg('adm_start', ucid), 'desc': get_msg('adm_start_desc', ucid)},
         {'id': 'restart', 'name': get_msg('adm_restart', ucid), 'desc': get_msg('adm_restart_desc', ucid)},
         {'id': 'end', 'name': get_msg('adm_end', ucid), 'desc': get_msg('adm_end_desc', ucid)},
         {'id': 'force_vote', 'name': get_msg('adm_force_vote', ucid), 'desc': get_msg('adm_force_vote_desc', ucid)},
+        {'id': 'max_races_add', 'name': "^3Max Races +1", 'desc': f"Actual: {max_races}"},
+        {'id': 'max_races_sub', 'name': "^3Max Races -1", 'desc': f"Actual: {max_races}"},
         {'id': 'back', 'name': get_msg('adm_back', ucid), 'desc': get_msg('adm_back_desc', ucid)},
     ]
     headers = [get_msg('adm_action', ucid), get_msg('cmd_desc', ucid), get_msg('adm_run', ucid)]
@@ -3627,6 +3661,16 @@ def on_message(packet: bytes):
             show_admin_menu(ucid)
         else:
              send_message(get_msg('admin_only', ucid), ucid)
+    elif cmd == "!setraces":
+        if is_admin(uname, ucid):
+            if not args or not args[0].isdigit():
+                send_message("^1Uso: !setraces <numero>", ucid)
+            else:
+                num = int(args[0])
+                update_server_config('max_races', num)
+                send_message(f"^2Max races set to: ^3{num}", ucid)
+        else:
+            send_message(get_msg('err_no_admin', ucid), ucid)
     elif cmd == "!setcars":
         if is_admin(uname, ucid):
             if not args:
@@ -4456,18 +4500,22 @@ def process_and_display_results():
         else:
              broadcast_localized("elo_change_msg", pos=res['position'], uname=res['uname'], car=car, elo=res.get('new_elo', 1500), change=c_str)
 
-    logging.info(f"Cons. Races: {STATE.consecutive_races} / 5")
-    if STATE.consecutive_races >= 5:
-        # Race 5/5 Finished -> Results shown -> Start Voting
-        logging.info("Starting Voting (Race 5 Finished)")
+    max_races = int(STATE.config.get('max_races', 5))
+    logging.info(f"Cons. Races: {STATE.consecutive_races} / {max_races if max_races > 0 else 'inf'}")
+    if getattr(STATE, 'voting_active', False):
+        logging.info("Voting is already active (forced). Not auto-restarting.")
+    elif max_races > 0 and STATE.consecutive_races >= max_races:
+        # Race X/Max Finished -> Results shown -> Start Voting
+        logging.info(f"Starting Voting (Race {max_races} Finished)")
         STATE.current_race['status'] = 'voting'
         STATE.current_voting_options = generate_random_voting_options()
         threading.Thread(target=start_voting, daemon=True).start()
     else:
-        # Race X/5 Finished -> Results shown -> Restart
-        logging.info("Restarting Race (Race < 5)")
-        remaining = 5 - STATE.consecutive_races
-        broadcast_localized("voting_remaining_msg", remaining=remaining)
+        # Race X/Max Finished -> Results shown -> Restart
+        logging.info("Restarting Race (Race < Max)")
+        if max_races > 0:
+            remaining = max_races - STATE.consecutive_races
+            broadcast_localized("voting_remaining_msg", remaining=remaining)
         threading.Thread(target=race_restart_countdown, daemon=True).start()
 
 def force_race_end_countdown(duration, race_token):
@@ -4484,6 +4532,15 @@ def force_race_end_countdown(duration, race_token):
              STATE.current_race['restarting'] = True
              threading.Thread(target=process_and_display_results, daemon=True).start() 
 
+def update_voting_timer_loop():
+    while getattr(STATE, 'voting_active', False):
+        time_left = max(0, int(getattr(STATE, 'voting_end_time', 0) - time.time()))
+        for ucid in list(STATE.current_race.get('players', {}).keys()):
+            create_button(152, ISB_DARK | ISB_COLOR_STRING, 12, 67, 30, 4, get_msg('vote_time', ucid, time=time_left), ucid, [1])
+        if time_left <= 0:
+            break
+        time.sleep(1)
+
 def start_voting():
     STATE.voting_active = True
     STATE.votes = {}
@@ -4496,6 +4553,7 @@ def start_voting():
         display_voting_table(ucid)
     STATE.voting_timer = threading.Timer(60.0, end_voting)
     STATE.voting_timer.start()
+    threading.Thread(target=update_voting_timer_loop, daemon=True).start()
 
 def end_voting():
     with STATE.lock:
