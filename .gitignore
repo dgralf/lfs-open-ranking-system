@@ -1,0 +1,34 @@
+# Web and API files
+*.php
+*.sql
+*.sh
+
+# Environment and secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs and scratch
+logs/
+debug*.log
+*.txt
+scratch*.php
+test*.php
+test*.py
+
+# Test / Dev environments
+bot-test-2/
+insim_bot/
+
+# Web static
+*.js
+*.css
+
+# Exemptions
+!README.md
+!bot-client/README.md
+!validator-node/developer_api_guide.md

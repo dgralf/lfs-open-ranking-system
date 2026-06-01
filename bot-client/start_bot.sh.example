@@ -1,0 +1,13 @@
+LFS_ADMIN_PASS=${INSIM_ADMIN_PASS:-"YOUR_INSIM_PASSWORD"}
+
+# ... Add rest of original start script logic, but with dummy values ...
+python3 system.py \
+    --host 127.0.0.1 \
+    --insim_port 29999 \
+    --admin "$LFS_ADMIN_PASS" \
+    --db_host localhost \
+    --db_user "lfs_user" \
+    --db_pass "YOUR_DB_PASSWORD" \
+    --db_name "lfs_ors" \
+    --web_dir "/var/www/html" \
+    --api_url "https://validator.lfsrank.com/ingest"
