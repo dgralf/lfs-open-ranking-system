@@ -1,5 +1,5 @@
-# LFS InSim Bot
-This bot connects to the Live for Speed server via InSim and sends race data to the Global API.
+# LFS InSim Bot (Reference Implementation)
+This bot is a fully functional base example of an InSim client. It connects to the Live for Speed server via InSim and sends cryptographically signed race data to the Global API. You are free to use it as-is, fork it to add your own custom features, or build your own client from scratch.
 
 ## Setup
 1. Copy `.env.example` to `.env`:

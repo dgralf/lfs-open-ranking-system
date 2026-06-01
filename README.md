@@ -22,8 +22,8 @@ All the documentation on how to connect your server, install the bot, or host yo
 
 The system is divided into two seamlessly integrated components:
 
-### 1. Bot Client (For LFS Server Owners)
-The lightweight Python daemon that runs alongside your LFS server. It connects to the InSim port, tracks race sessions, and transmits the results to the Global API.
+### 1. Bot Client (Reference Implementation)
+The `bot-client` folder provides a fully functional, lightweight Python daemon that runs alongside your LFS server. **This is just a base example.** You can use it as-is out of the box, fork and modify it to add your own custom InSim rules, or completely build your own bot in any language (Node.js, C#, etc.) as long as it transmits the correctly formatted and signed results to the Global API.
 
 ### 2. Web Portal & Global API
 The user-facing platform. It calculates the global ELO ladder based on the data received from all verified bots. It also provides a secure dashboard where server owners can generate API Keys to seamlessly connect their bots to the network.
