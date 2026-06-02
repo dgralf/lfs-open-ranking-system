@@ -66,6 +66,28 @@ def init_db():
         used INTEGER DEFAULT 0
     )''')
     
+    # Live Status: Track active servers
+    c.execute('''CREATE TABLE IF NOT EXISTS active_servers (
+        ip TEXT,
+        port INTEGER,
+        json_data TEXT,
+        last_updated TEXT,
+        status TEXT,
+        players_count INTEGER,
+        name TEXT,
+        track TEXT,
+        packet_timestamp REAL DEFAULT 0,
+        PRIMARY KEY (ip, port)
+    )''')
+    
+    # Web Auth: Verification codes
+    c.execute('''CREATE TABLE IF NOT EXISTS verification_codes (
+        code TEXT,
+        lfs_uname TEXT,
+        expire TEXT,
+        used INTEGER DEFAULT 0
+    )''')
+    
     conn.commit()
     conn.close()
 
@@ -229,9 +251,18 @@ async def handle_ingest(request):
                  for srv in servers:
                      ip = srv.get('ip', '0.0.0.0')
                      port = srv.get('port', 0)
+                     timestamp = srv.get('timestamp', 0)
+                     
+                     # Replay Protection
+                     c.execute("SELECT packet_timestamp FROM active_servers WHERE ip = ? AND port = ?", (ip, port))
+                     row = c.fetchone()
+                     if row and timestamp > 0 and timestamp <= row['packet_timestamp']:
+                          logging.warning(f"Replay attack detected for {ip}:{port}")
+                          continue
+                          
                      json_str = json.dumps(srv)
-                     c.execute("INSERT OR REPLACE INTO active_servers (ip, port, json_data, last_updated, status, players_count, name, track) VALUES (?, ?, ?, datetime('now'), 'online', ?, ?, ?)", 
-                               (ip, port, json_str, len(srv.get('players', [])), srv.get('name', 'Unknown'), srv.get('track', 'Unknown')))
+                     c.execute("INSERT OR REPLACE INTO active_servers (ip, port, json_data, last_updated, status, players_count, name, track, packet_timestamp) VALUES (?, ?, ?, datetime('now'), 'online', ?, ?, ?, ?)", 
+                               (ip, port, json_str, len(srv.get('players', [])), srv.get('name', 'Unknown'), srv.get('track', 'Unknown'), timestamp))
                  conn.commit()
                  conn.close()
                  result = {'status': 'success'}
@@ -302,7 +333,7 @@ async def handle_ingest(request):
              import secrets
              import hashlib
              uname = data.get('uname', 'unknown')
-             token = "SRV-" + secrets.token_hex(4).upper()
+             token = "SRV_" + secrets.token_hex(16).upper()
              token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
              try:
                  conn = get_db()
@@ -675,7 +706,7 @@ async def handle_live_ingest(request):
 
 async def start_server():
     init_db()
-    app = web.Application()
+    app = web.Application(client_max_size=1024*1024)
     app.router.add_post('/api/api_ingest.php', handle_ingest)
     app.router.add_post('/ingest', handle_ingest)
     app.router.add_get('/api/live', handle_live_data)

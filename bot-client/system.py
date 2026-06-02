@@ -4806,7 +4806,8 @@ def json_save_loop():
                     'name': STATE.server_name,
                     'track': STATE.current_track,
                     'status': STATE.current_race.get('status', 'unknown'),
-                    'players': []
+                    'players': [],
+                    'timestamp': time.time()
                 }
                 with STATE.lock:
                     for p in STATE.current_race['players'].values():
