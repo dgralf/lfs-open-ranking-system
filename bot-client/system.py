@@ -585,6 +585,10 @@ TRANSLATIONS = {
         'adm_cats_desc': "Activar/Desactivar GTI, TBO...",
         'adm_mods': "Mods ({state})",
         'adm_mods_desc': "Permitir descargar Mods",
+        'adm_all_cars': "Permitir Todos los Coches",
+        'adm_all_cars_desc': "Aplica /cars=ALL al servidor",
+        'adm_all_mods': "Permitir Todos los Mods",
+        'adm_all_mods_desc': "Aplica /mods=ALL al servidor",
         'adm_reset_cars': "Resetear !setcars",
         'adm_reset_cars_desc': "Limpia el filtro de !setcars",
         'adm_abort_vote': "Abortar Votacion",
@@ -900,6 +904,10 @@ TRANSLATIONS = {
         'adm_cats_desc': "Toggle GTI, TBO, GTR...",
         'adm_mods': "Mods ({state})",
         'adm_mods_desc': "Toggle Mods Allow",
+        'adm_all_cars': "Allow All Cars",
+        'adm_all_cars_desc': "Applies /cars=ALL to server",
+        'adm_all_mods': "Allow All Mods",
+        'adm_all_mods_desc': "Applies /mods=ALL to server",
         'adm_reset_cars': "Reset !setcars",
         'adm_reset_cars_desc': "Clear user !setcars Filter",
         'adm_abort_vote': "Abort Vote",
@@ -2083,6 +2091,12 @@ def on_button_click(packet: bytes):
                                  save_live_data()
                                  sync_config_to_api()
                             show_admin_menu(ucid)
+                        elif action_id == 'all_cars':
+                            send_message("/cars=ALL")
+                            show_admin_menu(ucid)
+                        elif action_id == 'all_mods':
+                            send_message("/mods=ALL")
+                            show_admin_menu(ucid)
                         elif action_id == 'reset_cars':
                             with STATE.lock:
                                 STATE.allowed_cars_filter = None
@@ -3031,6 +3045,8 @@ def show_admin_menu(ucid: int):
         {'id': 'menu_multiclass', 'name': get_msg('adm_mc', ucid), 'desc': get_msg('adm_mc_desc', ucid, max=STATE.config.get('max_multi_class', 1))},
         {'id': 'menu_categories', 'name': get_msg('adm_cats', ucid), 'desc': get_msg('adm_cats_desc', ucid)},
         {'id': 'toggle_mods', 'name': get_msg('adm_mods', ucid, state=state_mods), 'desc': get_msg('adm_mods_desc', ucid)},
+        {'id': 'all_cars', 'name': get_msg('adm_all_cars', ucid), 'desc': get_msg('adm_all_cars_desc', ucid)},
+        {'id': 'all_mods', 'name': get_msg('adm_all_mods', ucid), 'desc': get_msg('adm_all_mods_desc', ucid)},
         {'id': 'reset_cars', 'name': get_msg('adm_reset_cars', ucid), 'desc': get_msg('adm_reset_cars_desc', ucid)},
         {'id': 'abort_vote', 'name': get_msg('adm_abort_vote', ucid), 'desc': get_msg('adm_abort_vote_desc', ucid)},
     ]
