@@ -381,10 +381,9 @@ def resolve_mod_name_from_web(mod_id: str):
     url = f"https://www.lfs.net/files/vehmods/{mod_id}"
     logging.info(f"Resolving Mod ID {mod_id} from {url}...")
     try:
-        # Better headers to look like a browser
+        # Simple headers that don't trigger 403 on LFS
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0',
         }
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as response:
@@ -2092,10 +2091,12 @@ def on_button_click(packet: bytes):
                                  sync_config_to_api()
                             show_admin_menu(ucid)
                         elif action_id == 'all_cars':
-                            send_message("/cars=ALL")
+                            cmd_allcars(ucid)
+                            send_message("^2Activando todos los coches...", ucid)
                             show_admin_menu(ucid)
                         elif action_id == 'all_mods':
                             send_message("/mods=ALL")
+                            send_message("^2Mods activados.", ucid)
                             show_admin_menu(ucid)
                         elif action_id == 'reset_cars':
                             with STATE.lock:
